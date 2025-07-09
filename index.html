@@ -1,0 +1,63 @@
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конструктор парковки</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Конструктор парковки</h1>
+            <div class="mode-toggle">
+                <button id="constructorMode" class="mode-btn active">Конструктор</button>
+                <button id="simulationMode" class="mode-btn">Симуляция</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="toolbar" id="constructorToolbar">
+                <h3>Элементы</h3>
+                <div class="tool-group">
+                    <button class="tool-btn" data-type="parking-spot">
+                        <div class="parking-spot-icon"></div>
+                        Место для парковки
+                    </button>
+                    <button class="tool-btn" data-type="road">
+                        <div class="road-icon"></div>
+                        Дорога
+                    </button>
+                    <button class="tool-btn" data-type="wall">
+                        <div class="wall-icon"></div>
+                        Стена
+                    </button>
+                    <button class="tool-btn" data-type="entrance">
+                        <div class="entrance-icon"></div>
+                        Вход/Выход
+                    </button>
+                </div>
+                <div class="tool-group">
+                    <button class="action-btn" id="clearBtn">Очистить</button>
+                    <button class="action-btn" id="saveBtn">Сохранить</button>
+                </div>
+            </div>
+
+            <div class="simulation-panel" id="simulationPanel" style="display: none;">
+                <h3>Данные о машинах</h3>
+                <textarea id="carDataInput" placeholder="Введите массив данных о машинах, например:
+[[1,0,1,0,0],[0,0,0,1,1],[1,0,0,0,1]]
+
+где 1 - занятое место, 0 - свободное место"></textarea>
+                <button class="action-btn" id="applyDataBtn">Применить данные</button>
+                <div class="status" id="statusMsg"></div>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="parkingCanvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
