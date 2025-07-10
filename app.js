@@ -9,9 +9,9 @@ class ParkingMonitor {
         this.parkingSpots = [];
         this.socket = null;
         this.isConnected = false;
-        this.simulationInterval = null;
         this.carData = [];
         this.lastUpdateTime = null;
+        this.pingInterval = null;
         
         this.initializeCanvas();
         this.setupEventListeners();
@@ -26,10 +26,8 @@ class ParkingMonitor {
         this.cols = Math.floor(this.canvas.width / this.gridSize);
         this.rows = Math.floor(this.canvas.height / this.gridSize);
         
-        // Initialize empty grid
         this.grid = Array(this.rows).fill().map(() => Array(this.cols).fill(null));
         
-        // Create sample parking spots
         for (let row = 1; row < this.rows - 1; row++) {
             for (let col = 1; col < this.cols - 1; col++) {
                 if (row % 2 === 1 && col % 3 === 1) {
@@ -38,7 +36,6 @@ class ParkingMonitor {
             }
         }
         
-        // Create roads
         for (let row = 0; row < this.rows; row++) {
             this.grid[row][0] = 'road';
             this.grid[row][this.cols - 1] = 'road';
@@ -48,12 +45,10 @@ class ParkingMonitor {
             this.grid[this.rows - 1][col] = 'road';
         }
         
-        // Create entrance
         this.grid[0][Math.floor(this.cols / 2)] = 'entrance';
     }
 
     setupEventListeners() {
-        // Mode toggle
         document.getElementById('constructorMode').addEventListener('click', () => {
             this.switchMode(true);
         });
@@ -62,7 +57,6 @@ class ParkingMonitor {
             this.switchMode(false);
         });
 
-        // Tool selection
         document.querySelectorAll('.tool-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
@@ -71,24 +65,82 @@ class ParkingMonitor {
             });
         });
 
-        // Canvas events
         this.canvas.addEventListener('click', (e) => {
             if (this.isConstructorMode) {
-                this.handleCanvasClick(e);
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const col = Math.floor(x / this.gridSize);
+                const row = Math.floor(y / this.gridSize);
+                
+                if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
+                    this.grid[row][col] = this.currentTool;
+                    this.redraw();
+                }
             }
         });
 
-        // Action buttons
         document.getElementById('clearBtn').addEventListener('click', () => {
-            this.clearGrid();
+            this.grid = Array(this.rows).fill().map(() => Array(this.cols).fill(null));
+            this.redraw();
         });
 
         document.getElementById('saveBtn').addEventListener('click', () => {
-            this.saveLayout();
+            const layout = {
+                grid: this.grid,
+                cols: this.cols,
+                rows: this.rows,
+                gridSize: this.gridSize
+            };
+            
+            const dataStr = JSON.stringify(layout, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'parking_layout.json';
+            link.click();
+            
+            URL.revokeObjectURL(url);
         });
 
         document.getElementById('loadBtn').addEventListener('click', () => {
-            this.loadLayout();
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const layout = JSON.parse(event.target.result);
+                        
+                        if (!layout.grid || !layout.cols || !layout.rows) {
+                            throw new Error('Неверный формат файла');
+                        }
+                        
+                        this.grid = layout.grid;
+                        this.cols = layout.cols;
+                        this.rows = layout.rows;
+                        this.gridSize = layout.gridSize || 40;
+                        
+                        this.canvas.width = this.cols * this.gridSize;
+                        this.canvas.height = this.rows * this.gridSize;
+                        
+                        this.redraw();
+                    } catch (error) {
+                        alert('Ошибка загрузки: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            
+            input.click();
         });
 
         document.getElementById('connectBtn').addEventListener('click', () => {
@@ -99,7 +151,6 @@ class ParkingMonitor {
             this.disconnectFromStream();
         });
 
-        // Save URL on change
         document.getElementById('streamUrl').addEventListener('change', () => {
             this.saveConfig();
         });
@@ -130,25 +181,10 @@ class ParkingMonitor {
         this.redraw();
     }
 
-    handleCanvasClick(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        const col = Math.floor(x / this.gridSize);
-        const row = Math.floor(y / this.gridSize);
-        
-        if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
-            this.grid[row][col] = this.currentTool;
-            this.redraw();
-        }
-    }
-
     drawGrid() {
         this.ctx.strokeStyle = '#e0e0e0';
         this.ctx.lineWidth = 1;
         
-        // Draw vertical lines
         for (let i = 0; i <= this.cols; i++) {
             this.ctx.beginPath();
             this.ctx.moveTo(i * this.gridSize, 0);
@@ -156,7 +192,6 @@ class ParkingMonitor {
             this.ctx.stroke();
         }
         
-        // Draw horizontal lines
         for (let i = 0; i <= this.rows; i++) {
             this.ctx.beginPath();
             this.ctx.moveTo(0, i * this.gridSize);
@@ -180,7 +215,6 @@ class ParkingMonitor {
                 if (occupied) {
                     this.drawCar(x + this.gridSize/2, y + this.gridSize/2);
                 } else {
-                    // Draw parking spot number
                     const spotIndex = this.parkingSpots.findIndex(s => s.row === row && s.col === col);
                     if (spotIndex !== -1) {
                         this.ctx.fillStyle = '#2e7d32';
@@ -216,21 +250,17 @@ class ParkingMonitor {
         const carWidth = 22;
         const carHeight = 12;
         
-        // Car body
         this.ctx.fillStyle = '#5c6bc0';
         this.ctx.fillRect(x - carWidth/2, y - carHeight/2, carWidth, carHeight);
         
-        // Car outline
         this.ctx.strokeStyle = '#3949ab';
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(x - carWidth/2, y - carHeight/2, carWidth, carHeight);
         
-        // Windows
         this.ctx.fillStyle = '#bbdefb';
         this.ctx.fillRect(x - carWidth/2 + 2, y - carHeight/2 + 2, carWidth - 4, 3);
         this.ctx.fillRect(x - carWidth/2 + 2, y + carHeight/2 - 5, carWidth - 4, 3);
         
-        // Wheels
         this.ctx.fillStyle = '#212121';
         this.ctx.fillRect(x - carWidth/2 + 1, y - carHeight/2 - 1, 3, 2);
         this.ctx.fillRect(x + carWidth/2 - 4, y - carHeight/2 - 1, 3, 2);
@@ -242,7 +272,6 @@ class ParkingMonitor {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawGrid();
         
-        // Collect parking spots
         this.parkingSpots = [];
         let freeCount = 0;
         let occupiedCount = 0;
@@ -255,7 +284,6 @@ class ParkingMonitor {
                     if (this.grid[row][col] === 'parking-spot') {
                         this.parkingSpots.push({row, col});
                         
-                        // Check if this spot is occupied
                         const spotIndex = this.parkingSpots.length - 1;
                         occupied = this.isSpotOccupied(spotIndex);
                         
@@ -268,7 +296,6 @@ class ParkingMonitor {
             }
         }
         
-        // Update stats
         document.getElementById('freeCount').textContent = freeCount;
         document.getElementById('occupiedCount').textContent = occupiedCount;
         document.getElementById('lastUpdate').textContent = this.lastUpdateTime || '-';
@@ -276,149 +303,85 @@ class ParkingMonitor {
 
     isSpotOccupied(spotIndex) {
         if (!this.carData || this.carData.length === 0) return false;
-        
-        // For demo purposes, randomly assign occupation
-        if (this.carData.length <= spotIndex) {
-            return Math.random() > 0.5;
-        }
-        
-        return this.carData[spotIndex] === 1;
-    }
-
-    clearGrid() {
-        this.grid = Array(this.rows).fill().map(() => Array(this.cols).fill(null));
-        this.redraw();
-    }
-
-    saveLayout() {
-        const layout = {
-            grid: this.grid,
-            cols: this.cols,
-            rows: this.rows,
-            gridSize: this.gridSize
-        };
-        
-        const dataStr = JSON.stringify(layout, null, 2);
-        const dataBlob = new Blob([dataStr], {type: 'application/json'});
-        const url = URL.createObjectURL(dataBlob);
-        
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'parking_layout.json';
-        link.click();
-        
-        URL.revokeObjectURL(url);
-    }
-
-    loadLayout() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        
-        input.onchange = e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = event => {
-                try {
-                    const layout = JSON.parse(event.target.result);
-                    
-                    if (!layout.grid || !layout.cols || !layout.rows) {
-                        throw new Error('Неверный формат файла');
-                    }
-                    
-                    this.grid = layout.grid;
-                    this.cols = layout.cols;
-                    this.rows = layout.rows;
-                    this.gridSize = layout.gridSize || 40;
-                    
-                    // Обновить размеры канваса
-                    this.canvas.width = this.cols * this.gridSize;
-                    this.canvas.height = this.rows * this.gridSize;
-                    
-                    this.redraw();
-                    
-                    this.updateStatus('Парковка успешно загружена!', 'success');
-                    
-                } catch (error) {
-                    this.updateStatus('Ошибка загрузки: ' + error.message, 'error');
-                }
-            };
-            reader.readAsText(file);
-        };
-        
-        input.click();
+        return spotIndex < this.carData.length && this.carData[spotIndex] === 1;
     }
 
     connectToStream() {
-        const streamUrl = document.getElementById('streamUrl').value;
         const apiUrl = document.getElementById('apiUrl').value;
         
-        if (!streamUrl) {
-            this.updateStatus('Введите URL стрима!', 'error');
+        if (!apiUrl) {
+            this.updateStatus('Введите адрес WebSocket сервера!', 'error');
             return;
         }
         
-        this.updateStatus('Подключение к стриму...', 'info');
+        this.updateStatus('Подключение к серверу...', 'info');
         this.updateConnectionStatus(false, 'Подключение...');
         
-        // Здесь должна быть реальная интеграция с парсером стрима
-        // Для демонстрации используем генерацию случайных данных
-        
-        // Сохраняем URL в конфиг
-        this.saveConfig();
-        
-        // Останавливаем предыдущее подключение
         this.stopMonitoring();
         
-        // Запускаем генерацию тестовых данных
-        this.startMonitoring();
-    }
-
-    startMonitoring() {
-        this.stopMonitoring();
+        this.socket = new WebSocket(apiUrl);
         
-        // Обновляем статус
-        this.updateStatus('Мониторинг запущен. Получение данных...', 'info');
-        this.updateConnectionStatus(true, 'Подключено');
+        this.socket.onopen = () => {
+            console.log('WebSocket соединение установлено');
+            this.updateStatus('Соединение установлено', 'success');
+            this.updateConnectionStatus(true, 'Подключено');
+            
+            this.socket.send(JSON.stringify({ type: "request_data" }));
+            
+            this.pingInterval = setInterval(() => {
+                if (this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify({ type: "ping" }));
+                }
+            }, 15000);
+        };
         
-        // Генерируем начальные данные
-        this.generateParkingData();
+        this.socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === "parking_data") {
+                    this.carData = data.data;
+                    this.lastUpdateTime = new Date().toLocaleTimeString();
+                    
+                    const freeCount = data.data.filter(x => x === 0).length;
+                    const occupiedCount = data.data.filter(x => x === 1).length;
+                    
+                    document.getElementById('freeCount').textContent = freeCount;
+                    document.getElementById('occupiedCount').textContent = occupiedCount;
+                    document.getElementById('lastUpdate').textContent = this.lastUpdateTime;
+                    
+                    this.redraw();
+                }
+            } catch (e) {
+                console.error('Ошибка обработки данных:', e);
+            }
+        };
         
-        // Обновляем данные каждые 3 секунды
-        this.simulationInterval = setInterval(() => {
-            this.generateParkingData();
-        }, 3000);
+        this.socket.onerror = (error) => {
+            console.error('WebSocket ошибка:', error);
+            this.updateStatus('Ошибка соединения', 'error');
+            this.updateConnectionStatus(false, 'Ошибка');
+        };
+        
+        this.socket.onclose = (event) => {
+            console.log('WebSocket закрыт:', event.code, event.reason);
+            if (this.pingInterval) clearInterval(this.pingInterval);
+            this.updateStatus(`Соединение закрыто (${event.code})`, 'info');
+            this.updateConnectionStatus(false, 'Не подключено');
+        };
     }
 
     stopMonitoring() {
-        if (this.simulationInterval) {
-            clearInterval(this.simulationInterval);
-            this.simulationInterval = null;
+        if (this.socket) {
+            this.socket.close();
+            this.socket = null;
         }
-        
+        if (this.pingInterval) clearInterval(this.pingInterval);
         this.updateConnectionStatus(false, 'Не подключено');
     }
 
     disconnectFromStream() {
         this.stopMonitoring();
         this.updateStatus('Мониторинг остановлен', 'info');
-    }
-
-    generateParkingData() {
-        // Генерация случайных данных о занятости
-        this.carData = [];
-        
-        for (let i = 0; i < this.parkingSpots.length; i++) {
-            // 70% шанс, что место свободно
-            this.carData.push(Math.random() > 0.7 ? 1 : 0);
-        }
-        
-        this.lastUpdateTime = new Date().toLocaleTimeString();
-        this.redraw();
-        
-        this.updateStatus(`Данные обновлены: ${this.lastUpdateTime}`, 'success');
     }
 
     updateStatus(message, type = 'info') {
@@ -447,27 +410,21 @@ class ParkingMonitor {
             streamUrl: document.getElementById('streamUrl').value,
             apiUrl: document.getElementById('apiUrl').value
         };
-        
         localStorage.setItem('parkingMonitorConfig', JSON.stringify(config));
     }
 
     loadConfig() {
-        const config = JSON.parse(localStorage.getItem('parkingMonitorConfig') || '{}');
-        
+        const config = JSON.parse(localStorage.getItem('parkingMonitorConfig')) || {};
         if (config.streamUrl) {
             document.getElementById('streamUrl').value = config.streamUrl;
         }
-        
         if (config.apiUrl) {
             document.getElementById('apiUrl').value = config.apiUrl;
         }
     }
 }
 
-// Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
     const monitor = new ParkingMonitor();
-    
-    // Start in monitoring mode
     monitor.switchMode(false);
 });
