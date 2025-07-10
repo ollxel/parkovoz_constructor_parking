@@ -2,26 +2,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Конструктор парковки</title>
+    <title>Мониторинг парковки</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Конструктор парковки</h1>
+            <h1>Мониторинг парковки</h1>
             <div class="mode-toggle">
-                <button id="constructorMode" class="mode-btn active">Конструктор</button>
-                <button id="simulationMode" class="mode-btn">Симуляция</button>
+                <button id="constructorMode" class="mode-btn">Конструктор</button>
+                <button id="monitoringMode" class="mode-btn active">Мониторинг</button>
             </div>
         </header>
 
         <div class="main-content">
-            <div class="toolbar" id="constructorToolbar">
-                <h3>Элементы</h3>
+            <div class="toolbar" id="constructorToolbar" style="display: none;">
+                <h3>Элементы парковки</h3>
                 <div class="tool-group">
                     <button class="tool-btn" data-type="parking-spot">
                         <div class="parking-spot-icon"></div>
-                        Место для парковки
+                        Парковочное место
                     </button>
                     <button class="tool-btn" data-type="road">
                         <div class="road-icon"></div>
@@ -39,17 +39,47 @@
                 <div class="tool-group">
                     <button class="action-btn" id="clearBtn">Очистить</button>
                     <button class="action-btn" id="saveBtn">Сохранить</button>
+                    <button class="action-btn" id="loadBtn">Загрузить</button>
                 </div>
             </div>
 
-            <div class="simulation-panel" id="simulationPanel" style="display: none;">
-                <h3>Данные о машинах</h3>
-                <textarea id="carDataInput" placeholder="Введите массив данных о машинах, например:
-[[1,0,1,0,0],[0,0,0,1,1],[1,0,0,0,1]]
-
-где 1 - занятое место, 0 - свободное место"></textarea>
-                <button class="action-btn" id="applyDataBtn">Применить данные</button>
-                <div class="status" id="statusMsg"></div>
+            <div class="monitoring-panel" id="monitoringPanel">
+                <h3>Настройки мониторинга</h3>
+                <div class="form-group">
+                    <label for="streamUrl">URL стрима:</label>
+                    <input type="text" id="streamUrl" placeholder="rtsp:// или http://...">
+                </div>
+                <div class="form-group">
+                    <label for="apiUrl">API сервер:</label>
+                    <input type="text" id="apiUrl" placeholder="ws://localhost:8080">
+                </div>
+                
+                <div class="connection-status">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span id="connectionStatus">Не подключено</span>
+                </div>
+                
+                <div class="tool-group">
+                    <button class="action-btn" id="connectBtn">Начать мониторинг</button>
+                    <button class="action-btn" id="disconnectBtn">Остановить</button>
+                </div>
+                
+                <div class="status" id="statusMsg">Введите URL стрима и нажмите "Начать мониторинг"</div>
+                
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Свободно:</span>
+                        <span id="freeCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Занято:</span>
+                        <span id="occupiedCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Обновлено:</span>
+                        <span id="lastUpdate">-</span>
+                    </div>
+                </div>
             </div>
 
             <div class="canvas-container">
