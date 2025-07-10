@@ -224,15 +224,15 @@ h3 {
     height: 15px;
     border-radius: 50%;
     margin-right: 10px;
-    background: #ffc107; /* желтый - подключение */
+    background: #ffc107;
 }
 
 .status-indicator.connected {
-    background: #28a745; /* зеленый - подключено */
+    background: #28a745;
 }
 
 .status-indicator.error {
-    background: #dc3545; /* красный - ошибка */
+    background: #dc3545;
 }
 
 .stats {
@@ -285,16 +285,4 @@ h3 {
     outline: none;
     border-color: #3498db;
     box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
-}
-
-.video-feed {
-    margin-top: 20px;
-    background: #000;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-#streamVideo {
-    width: 100%;
-    display: block;
 }
